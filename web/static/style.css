@@ -334,6 +334,14 @@ html, body {
   flex-direction: column;
 }
 
+.message-image {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 8px;
+  border-radius: 8px;
+}
+
 .message-content {
   flex: 1;
   line-height: 1.6;

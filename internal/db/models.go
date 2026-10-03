@@ -45,6 +45,8 @@ type Message struct {
 	Role      string `json:"role"` // "user" or "assistant"
 	Content   string `json:"content"`
 	Timestamp int64  `json:"timestamp"`
+	Image     string `json:"image,omitempty"`      // base64 image payload (snapshot command)
+	ImageMime string `json:"image_mime,omitempty"` // e.g. "image/png"
 }
 
 // Conversation is a full chat thread.

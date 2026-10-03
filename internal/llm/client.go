@@ -169,6 +169,26 @@ func (c *Client) Chat(ctx context.Context, p db.Provider, model string, systemPr
 	return content, err
 }
 
+// SceneDescription asks the LLM to describe the current scene as a vivid
+// visual image prompt for image generation. It reuses the conversation
+// history (context sliding) plus a dedicated instruction appended as the
+// final user turn, so the instruction is never pruned.
+func (c *Client) SceneDescription(ctx context.Context, p db.Provider, model string, systemPrompt string, history []db.Message, maxTurns int) (string, error) {
+	historyCopy := make([]db.Message, len(history), len(history)+1)
+	copy(historyCopy, history)
+	historyCopy = append(historyCopy, db.Message{
+		Role:    "user",
+		Content: "Describe the current scene in vivid detail as a visual image prompt — setting, characters, their appearance and actions, lighting, mood, camera framing, and artistic style. Return ONLY the description, no other text.",
+	})
+	req := ChatRequest{
+		Model:    model,
+		Messages: buildMessages(systemPrompt, historyCopy, maxTurns),
+		Stream:   false,
+	}
+	content, _, err := c.doChat(ctx, p, req)
+	return content, err
+}
+
 // buildMessages constructs the pruned payload: system prompt + last N
 // user/assistant turns (context sliding). A turn is one user + one assistant
 // message pair; if the last message is a user message without a reply yet,

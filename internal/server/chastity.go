@@ -12,11 +12,12 @@ import (
 
 // ChastityState tracks the live state of the chastity device.
 type ChastityState struct {
-	mu            sync.Mutex
-	Locked        bool
-	LastAction    string
-	LastShockSecs int
-	LastShockAt   int64
+	mu                 sync.Mutex
+	Locked             bool
+	LastAction         string
+	LastShockSecs      int
+	LastShockIntensity int
+	LastShockAt        int64
 }
 
 func NewChastityState() *ChastityState {
@@ -28,7 +29,7 @@ var ChastityTool = llm.Tool{
 	Type: "function",
 	Function: llm.ToolFunc{
 		Name:        "chastity",
-		Description: "Controls the chastity device. Use action \"lock\" to lock it, \"unlock\" to unlock it, and \"shock\" to deliver an electric shock for a duration of 5 to 30 seconds (duration_seconds required for shock).",
+		Description: "Controls the chastity device. Use action \"lock\" to lock it, \"unlock\" to unlock it, and \"shock\" to deliver an electric shock for a duration of 5 to 30 seconds (duration_seconds and intensity required for shock, intensity 0=weak to 100=very strong).",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -43,6 +44,12 @@ var ChastityTool = llm.Tool{
 					"maximum":     30,
 					"description": "Shock duration in seconds, required when action is \"shock\" (5–30).",
 				},
+				"intensity": map[string]any{
+					"type":        "integer",
+					"minimum":     0,
+					"maximum":     100,
+					"description": "Shock intensity from 0 (weak) to 100 (very strong), required when action is \"shock\".",
+				},
 			},
 			"required": []string{"action"},
 		},
@@ -55,6 +62,7 @@ func (s *Server) chastityExecutor(name string, argsJSON string) string {
 	var args struct {
 		Action          string `json:"action"`
 		DurationSeconds *int   `json:"duration_seconds"`
+		Intensity       *int   `json:"intensity"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return fmt.Sprintf("Invalid arguments (%s). Retry with a valid action (lock, unlock or shock).", err.Error())
@@ -88,13 +96,21 @@ func (s *Server) chastityExecutor(name string, argsJSON string) string {
 		if *args.DurationSeconds < 5 || *args.DurationSeconds > 30 {
 			return fmt.Sprintf("Invalid shock duration (%d seconds). Retry with a duration between 5 and 30 seconds.", *args.DurationSeconds)
 		}
+		if args.Intensity == nil {
+			return "Missing shock intensity. Retry with intensity between 0 and 100."
+		}
+		if *args.Intensity < 0 || *args.Intensity > 100 {
+			return fmt.Sprintf("Invalid shock intensity (%d). Retry with an intensity between 0 and 100.", *args.Intensity)
+		}
 		sec := *args.DurationSeconds
+		intensity := *args.Intensity
 		s.chastity.mu.Lock()
 		s.chastity.LastAction = "shock"
 		s.chastity.LastShockSecs = sec
+		s.chastity.LastShockIntensity = intensity
 		s.chastity.LastShockAt = time.Now().Unix()
 		s.chastity.mu.Unlock()
-		return fmt.Sprintf("Shock delivered for %d seconds.", sec)
+		return fmt.Sprintf("Shock delivered for %d seconds at intensity %d.", sec, intensity)
 	default:
 		return fmt.Sprintf("Unknown action %q. Retry with lock, unlock or shock.", action)
 	}
@@ -105,9 +121,10 @@ func (s *Server) chastityStatus() map[string]any {
 	s.chastity.mu.Lock()
 	defer s.chastity.mu.Unlock()
 	return map[string]any{
-		"locked":          s.chastity.Locked,
-		"last_action":     s.chastity.LastAction,
-		"last_shock_secs": s.chastity.LastShockSecs,
-		"last_shock_at":   s.chastity.LastShockAt,
+		"locked":               s.chastity.Locked,
+		"last_action":          s.chastity.LastAction,
+		"last_shock_secs":      s.chastity.LastShockSecs,
+		"last_shock_intensity": s.chastity.LastShockIntensity,
+		"last_shock_at":        s.chastity.LastShockAt,
 	}
 }

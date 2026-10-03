@@ -215,6 +215,13 @@
       const body = document.createElement('div');
       body.className = 'message-body';
       body.appendChild(contentDiv);
+      if (extra.image) {
+        const img = document.createElement('img');
+        img.className = 'message-image';
+        img.src = 'data:' + (extra.image_mime || 'image/png') + ';base64,' + extra.image;
+        img.alt = '';
+        body.appendChild(img);
+      }
       div.appendChild(body);
     }
 
@@ -248,7 +255,7 @@
       // With "text off" the narration bubbles are hidden, but the voice mp3
       // still plays and the suggestion buttons are still shown.
       if (m.role === 'assistant' && !textOn) continue;
-      el.chatMessages.appendChild(createMessageEl(m.role, m.content));
+      el.chatMessages.appendChild(createMessageEl(m.role, m.content, m));
     }
     scrollToBottom();
   }

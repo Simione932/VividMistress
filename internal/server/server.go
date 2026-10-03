@@ -407,6 +407,7 @@ const helpText = "**Commands:**\n" +
 	"`start` – start pushing messages automatically\n" +
 	"`buttons [n]` – suggestion buttons per reply, 1–5 (default 5)\n" +
 	"`clear` – clear the conversation context (keeps your role)\n" +
+	"`snapshot` – describe the current scene and generate an image of it (takes a few minutes)\n" +
 	"`voice on/off` – turn spoken (mp3) replies on or off\n" +
 	"`text on/off` – show or hide the reply text on screen (voice and buttons keep working)"
 
@@ -1128,6 +1129,14 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			"voice_label":   voiceFriendlyLabel(voiceName(settings.VoiceName)),
 			"voice_speed":   voiceSpeed(settings.VoiceSpeed),
 		})
+		return
+	}
+
+	// The `snapshot` command is a two-stage pipeline: the LLM describes the
+	// current scene, then llama-swap renders it as an image. It never reaches
+	// the normal LLM chat path.
+	if strings.EqualFold(msg, "snapshot") {
+		s.handleSnapshot(w, r, clientID, &c)
 		return
 	}
 
