@@ -2,10 +2,10 @@
 /data/
 
 # Local build artifacts
-
+.DS_Store
+server.exe
+/cert.pem
+/key.pem
 
 # LLM request/response dumps
 llm_dumps/
-/cert.pem
-/key.pem
-.DS_Store
