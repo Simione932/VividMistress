@@ -91,12 +91,37 @@ type ToolFunc struct {
 }
 
 // ToolCall is a tool invocation returned by the upstream model.
+//
+// Type is always emitted as "tool_call" so the tool call round-trips
+// correctly when echoed back in an assistant message. This is required by the
+// OpenAI-compatible spec that llama.cpp enforces strictly; without it,
+// llama.cpp rejects the message with:
+//
+//	Failed to parse messages: Missing tool call type: {...}
+//
+// Ollama tolerates the missing field (so it worked before), and it is
+// OpenAI-compatible so accepting the field is safe too. The default is
+// applied in MarshalJSON because upstream responses are inconsistent: OpenAI
+// and llama.cpp include "type":"tool_call" in their replies, while Ollama
+// omits it, leaving Type empty at parse time.
 type ToolCall struct {
-	ID       string `json:"id,omitempty"`
-	Function struct {
+	Type       string `json:"type"` // "tool_call"
+	ID         string `json:"id,omitempty"`
+	Function   struct {
 		Name      string            `json:"name"`
 		Arguments ToolCallArguments `json:"arguments"`
 	} `json:"function"`
+}
+
+// MarshalJSON always emits the OpenAI-style tool_call type. When Type is empty
+// (e.g. an Ollama response that omits it), it defaults to "tool_call" so the
+// call serializes correctly for any OpenAI-compatible server.
+func (t ToolCall) MarshalJSON() ([]byte, error) {
+	if t.Type == "" {
+		t.Type = "tool_call"
+	}
+	type alias ToolCall
+	return json.Marshal(alias(t))
 }
 
 // ToolCallEvent records one executed tool call (for logging and the UI).
